@@ -6,7 +6,8 @@ use App\Helpers\ApiFormatter;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-
+use Carbon\Carbon;
+use App\Http\Resources\UserResource;
 
 class InvoiceController extends Controller
 {
@@ -27,6 +28,23 @@ class InvoiceController extends Controller
         }
     }
     // show
+    public function dashboard(Request $request){
+        $invoiceDayly = DB::table('sales_flat_invoice')->select(DB::raw('*'))
+        ->whereRaw('Date(created_at) = CURDATE()')->get()->count();
+        $invoiceMounthly =DB::table('sales_flat_invoice')->where("created_at",">", Carbon::now()->subMonths(6))->get()->count();
+        $invoiceYearly = DB::table('sales_flat_invoice')->whereYear('created_at', Carbon::now()->year)->get()->count();
+       $result = [
+        'dayly'=> $invoiceDayly,
+        'mounthly'=>$invoiceMounthly,
+        'yearly'=> $invoiceYearly
+      ];
+      return ApiFormatter::createApi(200, [
+        'data'=>$result,
+        'message' => 'success'
+      ]
+    );
+    }
+
     public function show($id){
         try {
             $invoice = DB::table('sales_flat_invoice')->join('sales_flat_order', 'sales_flat_invoice.order_id', '=', 'sales_flat_order.entity_id')->join('sales_flat_shipment_track', 'sales_flat_order.entity_id', '=', 'sales_flat_shipment_track.order_id')->join('sales_flat_order_address', 'sales_flat_order.entity_id', '=', 'sales_flat_order_address.parent_id')->join('sales_flat_order_payment', 'sales_flat_order.entity_id', '=', 'sales_flat_order_payment.parent_id')->join('sales_flat_shipment_grid', 'sales_flat_order.entity_id', '=', 'sales_flat_shipment_grid.order_id')->select('sales_flat_invoice.entity_id','sales_flat_invoice.shipping_amount','sales_flat_invoice.subtotal','sales_flat_invoice.discount_amount','sales_flat_invoice.increment_id AS no_invoice','sales_flat_invoice.created_at', 'sales_flat_order.increment_id AS no_order', 'sales_flat_order.customer_email', 'sales_flat_order.customer_firstname', 'sales_flat_order.customer_lastname', 'sales_flat_invoice.grand_total', 'sales_flat_order.shipping_description', 'sales_flat_order.status', 'sales_flat_order_address.region', 'sales_flat_order_address.postcode', 'sales_flat_order_address.street', 'sales_flat_order_address.city', 'sales_flat_order_address.telephone', 'sales_flat_order_address.firstname AS address_firstname', 'sales_flat_order_address.lastname AS address_lastname', 'sales_flat_order_address.address_type', 'sales_flat_order_address.subdistrict','sales_flat_order_address.id_number','sales_flat_order_address.dob', 'sales_flat_order_payment.method AS method_payment', 'sales_flat_shipment_track.track_number', 'sales_flat_shipment_grid.total_qty', 'sales_flat_shipment_grid.shipping_name')->orderBy('sales_flat_invoice.entity_id', 'desc')->where('sales_flat_invoice.entity_id', $id)->first();
